@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <title>Quản lý đơn Shopee 2025</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css"
+    />
+  </head>
+  <body class="has-background-light">
+    <section class="section">
+      <div class="container">
+        <h1 class="title">Quản lý đơn Shopee</h1>
+        <h2 class="subtitle">Import dữ liệu từ Excel và xem thống kê nhanh</h2>
+        <div class="box">
+          <form id="import-form">
+            <div class="field is-grouped">
+              <div class="control">
+                <input
+                  class="input"
+                  type="file"
+                  id="file-input"
+                  name="file"
+                  accept=".xlsx,.xls"
+                  required
+                />
+              </div>
+              <div class="control">
+                <button class="button is-primary" type="submit">
+                  Import Excel
+                </button>
+              </div>
+            </div>
+          </form>
+          <p id="import-result" class="help"></p>
+        </div>
+        <div class="box">
+          <h3 class="title is-5">Tổng quan</h3>
+          <div id="summary"></div>
+        </div>
+        <div class="box">
+          <h3 class="title is-5">Danh sách đơn hàng</h3>
+          <table class="table is-striped is-fullwidth">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Đơn hàng</th>
+                <th>Số tiền gốc</th>
+                <th>Số tiền sau giảm</th>
+                <th>Địa chỉ</th>
+                <th>Ngày đặt</th>
+                <th>Mã vận đơn</th>
+                <th>Ngày nhận</th>
+                <th>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody id="orders-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+    <script>
+      async function loadSummary() {
+        const res = await fetch("/api/stats/summary");
+        if (!res.ok) return;
+        const data = await res.json();
+        const statusText = (data.status_counts || [])
+          .map((s) => `${s.status || "KHAC"}: ${s.count}`)
+          .join(" | ");
+        const el = document.getElementById("summary");
+        el.innerHTML = `
+          <p><strong>Tổng số đơn:</strong> ${data.total_orders}</p>
+          <p><strong>Tổng tiền gốc:</strong> ${data.total_original.toLocaleString("vi-VN")}</p>
+          <p><strong>Tổng tiền sau giảm:</strong> ${data.total_discounted.toLocaleString("vi-VN")}</p>
+          <p><strong>Theo trạng thái:</strong> ${statusText}</p>
+        `;
+      }
+
+      async function loadOrders() {
+        const res = await fetch("/api/orders");
+        if (!res.ok) return;
+        const data = await res.json();
+        const tbody = document.getElementById("orders-body");
+        tbody.innerHTML = "";
+        data.forEach((o, idx) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${idx + 1}</td>
+            <td>${o.product_name || ""}</td>
+            <td>${o.original_amount != null ? o.original_amount.toLocaleString(
+              "vi-VN"
+            ) : ""}</td>
+            <td>${o.discounted_amount != null ? o.discounted_amount.toLocaleString(
+              "vi-VN"
+            ) : ""}</td>
+            <td>${o.address_code || ""}</td>
+            <td>${o.order_date || ""}</td>
+            <td>${o.tracking_code || ""}</td>
+            <td>${o.received_date || ""}</td>
+            <td>${o.status || ""}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      document
+        .getElementById("import-form")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const input = document.getElementById("file-input");
+          if (!input.files.length) return;
+          const formData = new FormData();
+          formData.append("file", input.files[0]);
+          const res = await fetch("/api/import", {
+            method: "POST",
+            body: formData,
+          });
+          const resultEl = document.getElementById("import-result");
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            resultEl.textContent =
+              "Lỗi import: " + (err.error || "Không xác định");
+            resultEl.className = "help is-danger";
+            return;
+          }
+          const data = await res.json();
+          resultEl.textContent = `Import xong: thêm mới ${data.inserted}, cập nhật ${data.updated}, bỏ qua ${data.skipped}`;
+          resultEl.className = "help is-success";
+          await loadSummary();
+          await loadOrders();
+        });
+
+      loadSummary();
+      loadOrders();
+    </script>
+  </body>
+</html>
+
