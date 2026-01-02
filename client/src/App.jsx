@@ -596,10 +596,6 @@ function App() {
                     rowKey="id"
                     loading={loadingOrders}
                     pagination={{ pageSize: 20 }}
-                    onRow={record => ({
-                      onClick: () => handleRowClick(record),
-                      style: { cursor: "pointer" },
-                    })}
                     columns={[
                       {
                         title: "#",
@@ -613,6 +609,17 @@ function App() {
                       {
                         title: "Shop",
                         dataIndex: "shop_name",
+                        render: (_value, record) => (
+                          <Button
+                            type="link"
+                            onClick={event => {
+                              event.stopPropagation();
+                              handleRowClick(record);
+                            }}
+                          >
+                            {record.shop_name || "Xem chi tiết"}
+                          </Button>
+                        ),
                       },
                       {
                         title: "Số tiền gốc",
@@ -1010,7 +1017,11 @@ function App() {
             <Form.Item label="Địa chỉ" name="address_code">
               <Input placeholder="Mã/ghi chú địa chỉ" />
             </Form.Item>
-            <Form.Item label="Ngày đặt" name="order_date">
+            <Form.Item
+              label="Ngày đặt"
+              name="order_date"
+              rules={[{ required: true, message: "Chọn ngày đặt" }]}
+            >
               <DatePicker style={{ width: "100%" }} />
             </Form.Item>
             <Form.Item label="Số tiền gốc" name="original_amount">
